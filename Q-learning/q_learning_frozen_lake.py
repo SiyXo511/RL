@@ -4,8 +4,24 @@ import random
 import matplotlib.pyplot as plt
 import time
 
-# 1. 加载环境
-env = gym.make("FrozenLake-v1", is_slippery=False)
+# 配置matplotlib中文字体
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']  # 用来正常显示中文标签
+plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
+
+# 1. 加载环境（8x8）
+env = gym.make("FrozenLake-v1", map_name="8x8", is_slippery=False)
+
+# 调整FrozenLake渲染窗口大小的工具函数
+def resize_frozen_lake_window(environment, cell_pixels=128):
+    """根据指定单元格像素大小，放大/缩小FrozenLake的pygame窗口。"""
+    env_unwrapped = environment.unwrapped
+    window_width = cell_pixels * env_unwrapped.ncol
+    window_height = cell_pixels * env_unwrapped.nrow
+    env_unwrapped.window_size = (window_width, window_height)
+    env_unwrapped.cell_size = (
+        max(window_width // env_unwrapped.ncol, 1),
+        max(window_height // env_unwrapped.nrow, 1),
+    )
 
 # 2. 初始化Q表
 # 获取状态空间和动作空间的大小
@@ -15,23 +31,46 @@ n_actions = env.action_space.n
 # 初始化Q表，所有值都为0
 q_table = np.zeros((n_states, n_actions))
 
-# 3. 设置超参数
-# 学习率：决定了我们多大程度上接受新的Q值
-learning_rate = 0.9
-# 折扣因子：衡量未来奖励的重要性
-gamma = 0.9
-# Epsilon-greedy策略中的epsilon
-epsilon = 1.0       # 初始探索率
-epsilon_decay = 0.0001 # 探索率衰减值
-min_epsilon = 0.01   # 最小探索率
+# 3. 设置超参数（针对 8x8 地图加大训练强度）
+# 学习率：适当提高，让价值传播更快
+learning_rate = 0.1
+# 折扣因子：保持 0.99，鼓励更远视野
+gamma = 0.99
 
-# 训练的总轮数
-n_episodes = 10000
-# 每轮的最大步数
-max_steps_per_episode = 100
+# Epsilon-greedy 策略设置
+epsilon = 1.0          # 初始探索率
+min_epsilon = 0.05     # 最小探索率
+n_episodes = 60000     # 训练轮数显著增加
+max_steps_per_episode = 200
+
+# 使用线性衰减，让智能体在 80% 的训练时间内逐步降低探索
+start_decay_episode = 1
+end_decay_episode = int(n_episodes * 0.8)
+epsilon_decay = (epsilon - min_epsilon) / (end_decay_episode - start_decay_episode)
 
 # 用于记录每轮的奖励
 rewards_per_episode = []
+
+def print_policy(table, environment):
+    """打印每个格子的最优动作方向"""
+    arrows = {0: "←", 1: "↓", 2: "→", 3: "↑"}
+    desc = environment.unwrapped.desc
+    nrow, ncol = environment.unwrapped.nrow, environment.unwrapped.ncol
+
+    print("\n📌 当前策略（箭头代表最佳动作）:")
+    for r in range(nrow):
+        row_symbols = []
+        for c in range(ncol):
+            tile = desc[r, c].decode("utf-8")
+            state_idx = r * ncol + c
+
+            if tile in ("H", "G"):
+                row_symbols.append(tile)
+            else:
+                best_action = int(np.argmax(table[state_idx, :]))
+                row_symbols.append(arrows[best_action])
+        print(" ".join(row_symbols))
+
 
 # 4. Q-learning算法
 for episode in range(n_episodes):
@@ -69,7 +108,7 @@ for episode in range(n_episodes):
             break
 
     # 更新epsilon（探索率衰减）
-    epsilon = max(min_epsilon, epsilon * (1 - epsilon_decay))
+    epsilon = max(min_epsilon, (epsilon - epsilon_decay))
     
     # 记录本轮奖励
     rewards_per_episode.append(episode_reward)
@@ -81,6 +120,7 @@ for episode in range(n_episodes):
 print("\n✅ 训练完成！")
 print("\n最终的Q表:")
 print(q_table)
+print_policy(q_table, env)
 
 # 5. 评估智能体的表现
 print("\n🚀 开始评估智能体...")
@@ -127,12 +167,15 @@ plt.show()
 print("\n🧊 展示智能体从起点到终点的最佳路径...")
 # 创建一个新的、可渲染的环境实例
 # 'human'模式会弹出一个窗口来显示动画
-vis_env = gym.make("FrozenLake-v1", is_slippery=False, render_mode="human")
+vis_env = gym.make("FrozenLake-v1", map_name="8x8", is_slippery=False, render_mode="human")
+# 将pygame窗口放大，默认每个格子128像素（4x4地图总宽高512）
+resize_frozen_lake_window(vis_env, cell_pixels=80)
 state, info = vis_env.reset()
 done = False
 
 # 等待用户按键开始，确保用户准备好观看
 print("准备开始可视化。请按回车键启动...")
+print_policy(q_table, vis_env)
 input()
 
 for step in range(max_steps_per_episode):
