@@ -21,9 +21,9 @@ learning_rate = 0.1
 gamma = 0.99
 
 epsilon = 1.0
-min_epsilon = 0.01
-n_episodes = 20000
-max_steps = 100
+min_epsilon = 0.05
+n_episodes = 40000
+max_steps = 200
 
 # 线性衰减 epsilon
 start_decay_episode = 1
@@ -146,7 +146,6 @@ plt.show()
 # 7. pygame 可视化（可选）
 vis_env = gym.make("FrozenLake-v1", map_name="8x8", is_slippery=False, render_mode="human")
 state, _ = vis_env.reset()
-input("\n按回车键开始演示 SARSA 策略...")
 print_policy(q_table, vis_env)
 
 for _ in range(max_steps):
