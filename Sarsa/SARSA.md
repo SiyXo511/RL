@@ -183,6 +183,7 @@ epsilon_decay = (epsilon - min_epsilon) / (end_decay_episode - start_decay_episo
 - **提前选择动作**：在 `env.step()` 之前就选择好下一个动作
 - **动作保存**：使用 `action = next_action if not done else None` 保存动作供下次更新使用
 - **策略可视化**：`print_policy()` 函数打印每个格子的最优动作方向
+- **延迟更新**：前 `n-1` 步只收集轨迹，不更新 Q 表；从第 `n` 步起才会根据过去的 n 步回报更新对应的状态-动作对
 
 ## 多步 SARSA（n-step SARSA）
 
